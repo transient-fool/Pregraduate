@@ -1,0 +1,127 @@
+#include <iostream>
+#include <stack>
+#include <string>
+#include <unordered_map>
+#include <cctype>
+#include <vector>
+#include <sstream>
+
+using namespace std;
+
+// 判断字符是否为运算符
+bool isOperator(char c) {
+    return c == '+' || c == '-' || c == '*' || c == '/' || c == '^';
+}
+
+// 获取运算符优先级
+int getPrecedence(char op) {
+    static unordered_map<char, int> precedence = {
+        {'^', 4},
+        {'*', 3},
+        {'/', 3},
+        {'+', 2},
+        {'-', 2}
+    };
+    return precedence[op];
+}
+
+// 中缀表达式转后缀表达式
+string infixToPostfix(const string& infix) {
+    stack<char> opStack;
+    stringstream postfix;
+    
+    for (size_t i = 0; i < infix.length(); ++i) {
+        char c = infix[i];
+        
+        // 跳过空格
+        if (c == ' ') continue;
+        
+        // 如果是操作数（字母或数字），直接输出
+        if (isalnum(c)) {
+            postfix << c;
+            // 处理多位数字
+            while (i + 1 < infix.length() && isalnum(infix[i+1])) {
+                postfix << infix[++i];
+            }
+            postfix << ' '; // 添加空格分隔
+        }
+        // 如果是左括号，压入栈
+        else if (c == '(') {
+            opStack.push(c);
+        }
+        // 如果是右括号，弹出栈顶元素直到遇到左括号
+        else if (c == ')') {
+            while (!opStack.empty() && opStack.top() != '(') {
+                postfix << opStack.top() << ' ';
+                opStack.pop();
+            }
+            opStack.pop(); // 弹出左括号但不输出
+        }
+        // 如果是运算符
+        else if (isOperator(c)) {
+            // 处理负号（一元运算符）的情况
+            if (c == '-' && (i == 0 || infix[i-1] == '(')) {
+                postfix << "0 "; // 添加0使其成为二元运算符
+            }
+            
+            // 弹出栈顶优先级大于等于当前运算符的所有运算符
+            while (!opStack.empty() && opStack.top() != '(' && 
+                   getPrecedence(opStack.top()) >= getPrecedence(c)) {
+                postfix << opStack.top() << ' ';
+                opStack.pop();
+            }
+            opStack.push(c);
+        }
+    }
+    
+    // 弹出栈中剩余的所有运算符
+    while (!opStack.empty()) {
+        postfix << opStack.top() << ' ';
+        opStack.pop();
+    }
+    
+    string result = postfix.str();
+    // 移除末尾可能多余的空格
+    if (!result.empty() && result.back() == ' ') {
+        result.pop_back();
+    }
+    
+    return result;
+}
+
+// 测试函数
+void testInfixToPostfix() {
+    vector<pair<string, string>> testCases = {
+        {"a + b * c - ( d + e )", "a b c * + d e + -"},
+        {"3 + 4 * 2 / ( 1 - 5 ) ^ 2", "3 4 2 * 1 5 - 2 ^ / +"},
+        {"( ( A + B ) - C * ( D / E ) ) + F", "A B + C D E / * - F +"},
+        {"-A + B", "0 A - B +"},  // 处理一元负号
+        {"A * B + C * D", "A B * C D * +"},
+        {"A + B * C + D", "A B C * + D +"}
+    };
+    
+    cout << "测试中缀转后缀表达式:\n";
+    for (const auto& testCase : testCases) {
+        string result = infixToPostfix(testCase.first);
+        cout << "中缀: " << testCase.first << "\n";
+        cout << "预期: " << testCase.second << "\n";
+        cout << "结果: " << result << "\n";
+        cout << (result == testCase.second ? "通过" : "失败") << "\n\n";
+    }
+}
+
+int main() {
+    testInfixToPostfix();
+    
+    // 交互式测试
+    string infixExpr;
+    cout << "\n输入中缀表达式（输入q退出）: ";
+    while (getline(cin, infixExpr)) {
+        if (infixExpr == "q") break;
+        string postfixExpr = infixToPostfix(infixExpr);
+        cout << "后缀表达式: " << postfixExpr << "\n\n";
+        cout << "输入中缀表达式（输入q退出）: ";
+    }
+    
+    return 0;
+}
