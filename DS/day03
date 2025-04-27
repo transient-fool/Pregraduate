@@ -1,0 +1,157 @@
+#include <iostream>
+#include <stack>
+#include <string>
+#include <vector>
+#include <stdexcept>
+#include <cmath>
+#include <cctype>
+#include <unordered_map>
+
+using namespace std;
+
+// 运算符优先级
+unordered_map<char, int> precedence = {
+    {'+', 1}, {'-', 1},
+    {'*', 2}, {'/', 2},
+    {'^', 3}
+};
+
+// 判断是否为运算符
+bool isOperator(char c) {
+    return precedence.count(c);
+}
+
+// 执行运算
+double applyOp(double a, double b, char op) {
+    switch(op) {
+        case '+': return a + b;
+        case '-': return a - b;
+        case '*': return a * b;
+        case '/': 
+            if (b == 0) throw runtime_error("除零错误");
+            return a / b;
+        case '^': return pow(a, b);
+        default: throw runtime_error("无效运算符");
+    }
+}
+
+// 中缀表达式求值
+double evaluateInfix(const string& expr) {
+    stack<double> values;
+    stack<char> ops;
+    
+    for (size_t i = 0; i < expr.size(); ) {
+        // 跳过空格
+        if (expr[i] == ' ') { i++; continue; }
+        
+        // 处理数字
+        if (isdigit(expr[i]) || expr[i] == '.') {
+            size_t end = i;
+            while (end < expr.size() && (isdigit(expr[end]) || expr[end] == '.')) {
+                end++;
+            }
+            double num = stod(expr.substr(i, end - i));
+            values.push(num);
+            i = end;
+        }
+        // 处理左括号
+        else if (expr[i] == '(') {
+            ops.push(expr[i]);
+            i++;
+        }
+        // 处理右括号
+        else if (expr[i] == ')') {
+            while (!ops.empty() && ops.top() != '(') {
+                if (values.size() < 2) throw runtime_error("表达式无效");
+                
+                double b = values.top(); values.pop();
+                double a = values.top(); values.pop();
+                char op = ops.top(); ops.pop();
+                
+                values.push(applyOp(a, b, op));
+            }
+            if (ops.empty()) throw runtime_error("括号不匹配");
+            ops.pop(); // 弹出左括号
+            i++;
+        }
+        // 处理运算符
+        else if (isOperator(expr[i])) {
+            // 处理一元负号
+            if (expr[i] == '-' && (i == 0 || expr[i-1] == '(')) {
+                values.push(0); // 转换为0 - x
+            }
+            
+            while (!ops.empty() && ops.top() != '(' && 
+                   precedence[ops.top()] >= precedence[expr[i]]) {
+                if (values.size() < 2) throw runtime_error("表达式无效");
+                
+                double b = values.top(); values.pop();
+                double a = values.top(); values.pop();
+                char op = ops.top(); ops.pop();
+                
+                values.push(applyOp(a, b, op));
+            }
+            ops.push(expr[i]);
+            i++;
+        }
+        else {
+            throw runtime_error("无效字符: " + string(1, expr[i]));
+        }
+    }
+    
+    // 处理剩余运算符
+    while (!ops.empty()) {
+        if (ops.top() == '(') throw runtime_error("括号不匹配");
+        if (values.size() < 2) throw runtime_error("表达式无效");
+        
+        double b = values.top(); values.pop();
+        double a = values.top(); values.pop();
+        char op = ops.top(); ops.pop();
+        
+        values.push(applyOp(a, b, op));
+    }
+    
+    if (values.size() != 1) throw runtime_error("表达式无效");
+    return values.top();
+}
+
+// 测试函数
+void runTests() {
+    vector<pair<string, double>> testCases = {
+        {"3 + 4 * 2", 11},
+        {"(3 + 4) * 2", 14},
+        {"3 + 4 * 2 / (1 - 5) ^ 2", 3.5},
+        {"-5 + 3 * 2", 1},
+        {"2 ^ 3 ^ 2", 512},
+        {"3.5 * 2 + 1.5", 8.5},
+        {"(1 + 2) * (3 + 4)", 21},
+        {"1 + 2 * (3 + 4) - 5 / 2", 12.5}
+    };
+    
+    cout << "中缀表达式求值测试:\n";
+    cout << "================================\n";
+    
+    for (size_t i = 0; i < testCases.size(); ++i) {
+        const auto& testCase = testCases[i];
+        cout << "测试用例 " << i+1 << ": " << testCase.first << "\n";
+        cout << "预期结果: " << testCase.second << endl;
+        
+        try {
+            double result = evaluateInfix(testCase.first);
+            cout << "计算结果: " << result;
+            if (abs(result - testCase.second) < 1e-9) {
+                cout << " ✓ 通过\n";
+            } else {
+                cout << " ✗ 失败\n";
+            }
+        } catch (const exception& e) {
+            cout << "错误: " << e.what() << " ✗ 失败\n";
+        }
+        cout << "--------------------------------\n";
+    }
+}
+
+int main() {
+    runTests();
+    return 0;
+}
