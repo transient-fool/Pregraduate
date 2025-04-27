@@ -1,0 +1,222 @@
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+// AVL树节点
+struct AVLNode {
+    int key;
+    AVLNode* left;
+    AVLNode* right;
+    int height;  // 节点高度
+
+    AVLNode(int k) : key(k), left(nullptr), right(nullptr), height(1) {}
+};
+
+// 获取节点高度
+int getHeight(AVLNode* node) {
+    if (node == nullptr) return 0;
+    return node->height;
+}
+
+// 计算平衡因子（左子树高度 - 右子树高度）
+int getBalanceFactor(AVLNode* node) {
+    if (node == nullptr) return 0;
+    return getHeight(node->left) - getHeight(node->right);
+}
+
+// 更新节点高度
+void updateHeight(AVLNode* node) {
+    if (node == nullptr) return;
+    node->height = max(getHeight(node->left), getHeight(node->right)) + 1;
+}
+
+// 右旋（LL情况）
+AVLNode* rightRotate(AVLNode* y) {
+    AVLNode* x = y->left;
+    AVLNode* T2 = x->right;
+
+    // 旋转
+    x->right = y;
+    y->left = T2;
+
+    // 更新高度
+    updateHeight(y);
+    updateHeight(x);
+
+    return x;  // 返回新的根节点
+}
+
+// 左旋（RR情况）
+AVLNode* leftRotate(AVLNode* x) {
+    AVLNode* y = x->right;
+    AVLNode* T2 = y->left;
+
+    // 旋转
+    y->left = x;
+    x->right = T2;
+
+    // 更新高度
+    updateHeight(x);
+    updateHeight(y);
+
+    return y;  // 返回新的根节点
+}
+
+// 插入节点
+AVLNode* insert(AVLNode* root, int key) {
+    // 1. 普通BST插入
+    if (root == nullptr) {
+        return new AVLNode(key);
+    }
+
+    if (key < root->key) {
+        root->left = insert(root->left, key);
+    } else if (key > root->key) {
+        root->right = insert(root->right, key);
+    } else {
+        return root;  // 不允许重复键
+    }
+
+    // 2. 更新高度
+    updateHeight(root);
+
+    // 3. 检查平衡并旋转调整
+    int balance = getBalanceFactor(root);
+
+    // LL情况（左子树比右子树高，且新节点在左子树的左子树）
+    if (balance > 1 && key < root->left->key) {
+        return rightRotate(root);
+    }
+
+    // RR情况（右子树比左子树高，且新节点在右子树的右子树）
+    if (balance < -1 && key > root->right->key) {
+        return leftRotate(root);
+    }
+
+    // LR情况（左子树比右子树高，但新节点在左子树的右子树）
+    if (balance > 1 && key > root->left->key) {
+        root->left = leftRotate(root->left);
+        return rightRotate(root);
+    }
+
+    // RL情况（右子树比左子树高，但新节点在右子树的左子树）
+    if (balance < -1 && key < root->right->key) {
+        root->right = rightRotate(root->right);
+        return leftRotate(root);
+    }
+
+    return root;  // 无需调整
+}
+
+// 查找最小值节点（用于删除）
+AVLNode* findMinNode(AVLNode* node) {
+    while (node->left != nullptr) {
+        node = node->left;
+    }
+    return node;
+}
+
+// 删除节点
+AVLNode* deleteNode(AVLNode* root, int key) {
+    // 1. 普通BST删除
+    if (root == nullptr) return root;
+
+    if (key < root->key) {
+        root->left = deleteNode(root->left, key);
+    } else if (key > root->key) {
+        root->right = deleteNode(root->right, key);
+    } else {
+        // 找到要删除的节点
+        if (root->left == nullptr || root->right == nullptr) {
+            AVLNode* temp = root->left ? root->left : root->right;
+            if (temp == nullptr) {
+                temp = root;
+                root = nullptr;
+            } else {
+                *root = *temp;  // 用子节点覆盖当前节点
+            }
+            delete temp;
+        } else {
+            // 有两个子节点，用右子树的最小值替换
+            AVLNode* temp = findMinNode(root->right);
+            root->key = temp->key;
+            root->right = deleteNode(root->right, temp->key);
+        }
+    }
+
+    if (root == nullptr) return root;  // 树为空
+
+    // 2. 更新高度
+    updateHeight(root);
+
+    // 3. 检查平衡并旋转调整
+    int balance = getBalanceFactor(root);
+
+    // LL情况
+    if (balance > 1 && getBalanceFactor(root->left) >= 0) {
+        return rightRotate(root);
+    }
+
+    // LR情况
+    if (balance > 1 && getBalanceFactor(root->left) < 0) {
+        root->left = leftRotate(root->left);
+        return rightRotate(root);
+    }
+
+    // RR情况
+    if (balance < -1 && getBalanceFactor(root->right) <= 0) {
+        return leftRotate(root);
+    }
+
+    // RL情况
+    if (balance < -1 && getBalanceFactor(root->right) > 0) {
+        root->right = rightRotate(root->right);
+        return leftRotate(root);
+    }
+
+    return root;
+}
+
+// 查找节点
+bool search(AVLNode* root, int key) {
+    if (root == nullptr) return false;
+    if (root->key == key) return true;
+    if (key < root->key) return search(root->left, key);
+    return search(root->right, key);
+}
+
+// 中序遍历（验证AVL树是否有序）
+void inorderTraversal(AVLNode* root) {
+    if (root == nullptr) return;
+    inorderTraversal(root->left);
+    cout << root->key << " ";
+    inorderTraversal(root->right);
+}
+
+int main() {
+    AVLNode* root = nullptr;
+
+    // 插入测试
+    root = insert(root, 10);
+    root = insert(root, 20);
+    root = insert(root, 30);
+    root = insert(root, 40);
+    root = insert(root, 50);
+    root = insert(root, 25);
+
+    cout << "中序遍历结果（验证有序性）: ";
+    inorderTraversal(root);
+    cout << endl;
+
+    // 查找测试
+    cout << "查找 30: " << (search(root, 30) ? "存在" : "不存在") << endl;
+    cout << "查找 100: " << (search(root, 100) ? "存在" : "不存在") << endl;
+
+    // 删除测试
+    root = deleteNode(root, 30);
+    cout << "删除 30 后的中序遍历: ";
+    inorderTraversal(root);
+    cout << endl;
+
+    return 0;
+}
